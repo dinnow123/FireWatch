@@ -54,7 +54,7 @@
 
 ## 2. System context diagram
 
-![[스크린샷 2026-03-27 오전 1.03.17.png]]
+![FireWatch System Context Diagram](images/Use_case_model.png)
 
 * **Input Report :** 화재 신고 정보 입력 (건물, 발화 위치, 층, 시각) 
 * **Load Building :** 건물 평면도 및 구조·재질 데이터 로드 
