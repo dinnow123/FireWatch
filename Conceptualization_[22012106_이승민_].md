@@ -350,3 +350,5 @@
 7. 기상청, 앙상블 예측 기법 — https://www.kma.go.kr/down/e-learning/hands/hands_17.pdf
 8. Wikipedia, Ensemble Forecasting — https://en.wikipedia.org/wiki/Ensemble_forecasting
 9. Wikipedia, 결정론적 알고리즘 — https://ko.wikipedia.org/wiki/결정론적_알고리즘
+10. Wikipedia, — 복잡계 https://ko.wikipedia.org/wiki/복잡계
+11. 국가기록원, *대구 지하철 화재사고* — https://www.archives.go.kr/next/search/listSubjectDescription.do?id=001920
