@@ -4,7 +4,7 @@
 
 ![FireWatch System Context Diagram](images/Use_case_model.png)
 
-**Commander → System:**
+
 ● Input Report : 화재 신고 정보 입력 (건물, 발화 위치, 층, 시각) 
 ● Load Building : 건물 평면도 및 구조·재질 데이터 로드 
 ● Set Parameters : 시뮬레이션 조건 설정 (스프링클러, 방화셔터, 문 개폐 상태) 
@@ -13,21 +13,21 @@
 ● Control Time : 시뮬레이션 시점 조절 
 ● Reset Simulation : 시뮬레이션 초기화 및 재시작
 
-**System → Commander:**
+
 ● Probability Heatmap : 층별 화재 도달 확률 히트맵 
 ● Building Section View : 건물 단면도를 통한 층별 위험도 
 ● Result Summary : 시뮬레이션 결과 요약 (화재 면적, 확산 방향, 도달 확률)
 
-**Field Operator → System:**
+
 ● Switch Floor : 층별 전환하여 확인
 ● Control Time : 시뮬레이션 시점 조절 요청
 
-**System → Field Operator:**
+
 ● Probability Heatmap : 층별 화재 도달 확률 히트맵 
 ● Building Section View : 건물 단면도를 통한 층별 위험도 
 ● Result Summary : 시뮬레이션 결과 요약
 
-**System 내부 구조:**
+
 ● DB : 건물 평면도, 셀별 재질 정보, 소방 설비 위치 데이터 저장 
 ● CA Engine : 확률적 셀룰러 오토마타 기반 화재 확산 앙상블 시뮬레이션 엔진 
 ● Result : 앙상블 시뮬레이션 결과 (셀별 화재 도달 확률 분포)
