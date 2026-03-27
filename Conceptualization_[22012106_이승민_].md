@@ -303,5 +303,6 @@ CA 모델의 종류는 매우 다양하다. 본 프로젝트의 설계에 있어
 4. PROPAGATOR. [https://www.mdpi.com/2571-6255/3/3/26](https://www.mdpi.com/2571-6255/3/3/26)
 5. CAEva. [https://www.hindawi.com/journals/mpe/2018/3058241/](https://www.hindawi.com/journals/mpe/2018/3058241/)
 6. 셀룰러 오토마타. [https://en.wikipedia.org/wiki/Cellular_automaton](https://en.wikipedia.org/wiki/Cellular_automaton)
-
+7. 수치 예보. https://www.kma.go.kr/kma/biz/forecast04.jsp , https://ko.wikipedia.org/wiki/%EC%88%98%EC%B9%98_%EC%98%88%EB%B3%B4
+8. 앙상블 예측. https://www.kma.go.kr/down/e-learning/hands/hands_17.pdf
 </div>
