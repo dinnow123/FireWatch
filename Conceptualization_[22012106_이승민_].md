@@ -8,6 +8,7 @@
 * **이름:** 이승민
 * **E-mail:** dinola@naver.com
 
+**깃허브 주소** : https://github.com/dinnow123/FireWatch
 ---
 
 ## 1. Business purpose
