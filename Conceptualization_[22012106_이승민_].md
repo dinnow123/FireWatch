@@ -344,6 +344,9 @@
 1. NIST, "Fire Dynamics Simulator (FDS)" — https://pages.nist.gov/fds-smv/
 2. FlowMSP — https://flowmsp.com/
 3. APX Data — https://apxdata.com/
-4. PROPAGATOR — https://www.mdpi.com/2571-6255/3/3/26
-5. CAEva — https://www.hindawi.com/journals/mpe/2018/3058241/
-6. Cellular Automaton — https://en.wikipedia.org/wiki/Cellular_automaton
+4. Trucchia, A. et al., "PROPAGATOR: An Operational Cellular-Automata Based Wildfire Simulator", Fire, 3(3), 2020 — https://www.mdpi.com/2571-6255/3/3/26
+5. Czerniak, J. et al., "A Cellular Automata-Based Simulation Tool for Real Fire Accident Prevention (CAEva)", Mathematical Problems in Engineering, 2018 — https://www.hindawi.com/journals/mpe/2018/3058241/
+6. Wikipedia, Cellular Automaton — https://en.wikipedia.org/wiki/Cellular_automaton
+7. 기상청, 앙상블 예측 기법 — https://www.kma.go.kr/down/e-learning/hands/hands_17.pdf
+8. Wikipedia, Ensemble Forecasting — https://en.wikipedia.org/wiki/Ensemble_forecasting
+9. Wikipedia, 결정론적 알고리즘 — https://ko.wikipedia.org/wiki/결정론적_알고리즘
