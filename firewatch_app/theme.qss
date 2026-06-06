@@ -1,0 +1,410 @@
+/* ============================================================
+   FireWatch Dark Theme
+   Concept: NASA mission control / military command center
+   No gradients, no rounded corners, no decorative color.
+   ============================================================ */
+
+* {
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+    font-size: 13px;
+    color: #e6edf3;
+}
+
+QWidget {
+    background-color: #0d1117;
+    color: #e6edf3;
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+}
+
+QLabel, QPushButton, QRadioButton, QCheckBox, QListWidget, QListView,
+QMenu, QMenuBar, QToolTip, QGroupBox, QTabBar, QTabWidget {
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+}
+
+QMainWindow {
+    background-color: #0d1117;
+}
+
+/* ---------- Top bar ---------- */
+QWidget#TopBar {
+    background-color: #161b22;
+    border-bottom: 1px solid #30363d;
+}
+
+QLabel#AppTitle {
+    color: #e6edf3;
+    font-family: "IBM Plex Sans", "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 0 12px;
+}
+
+/* ---------- Mode toggle (radio-button style) ---------- */
+QWidget#ModeToggle {
+    background-color: #0d1117;
+    border: 1px solid #30363d;
+}
+
+QRadioButton#ModeRadio {
+    background-color: transparent;
+    color: #8b949e;
+    padding: 4px 12px;
+    font-size: 12px;
+    spacing: 6px;
+    border: none;
+}
+
+QRadioButton#ModeRadio:checked {
+    color: #10b981;
+    font-weight: 600;
+}
+
+QRadioButton#ModeRadio::indicator {
+    width: 8px;
+    height: 8px;
+    border: 1px solid #30363d;
+    background-color: #0d1117;
+}
+
+QRadioButton#ModeRadio::indicator:checked {
+    background-color: #10b981;
+    border: 1px solid #10b981;
+}
+
+/* ---------- Sidebar ---------- */
+QWidget#Sidebar {
+    background-color: #161b22;
+    border-right: 1px solid #30363d;
+}
+
+QLabel#ModeBanner {
+    color: #f59e0b;
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+    font-size: 11px;
+    padding: 6px 14px;
+    background-color: #1f1408;
+    border-bottom: 1px solid #30363d;
+}
+
+QListWidget#SidebarList {
+    background-color: #161b22;
+    border: none;
+    outline: 0;
+    padding: 4px 0;
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+    font-size: 13px;
+}
+
+QListWidget#SidebarList::item {
+    color: #e6edf3;
+    padding: 8px 14px;
+    border: none;
+    border-left: 2px solid transparent;
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+}
+
+QListWidget#SidebarList::item:hover {
+    background-color: #1c232b;
+}
+
+QListWidget#SidebarList::item:selected {
+    background-color: #0d1117;
+    color: #10b981;
+    border-left: 2px solid #10b981;
+}
+
+QListWidget#SidebarList::item:disabled {
+    color: #484f58;
+    background-color: #161b22;
+}
+
+/* Building picker on the report screen — selectable cards, all shown up-front. */
+QListWidget#BuildingList {
+    background-color: #0d1117;
+    border: 1px solid #30363d;
+    outline: 0;
+    padding: 2px;
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+    font-size: 12px;
+}
+
+QListWidget#BuildingList::item {
+    color: #e6edf3;
+    padding: 7px 10px;
+    border: none;
+    border-left: 2px solid transparent;
+}
+
+QListWidget#BuildingList::item:hover {
+    background-color: #161b22;
+}
+
+QListWidget#BuildingList::item:selected {
+    background-color: #0a3d2c;
+    color: #10b981;
+    border-left: 2px solid #10b981;
+}
+
+/* ---------- Main content area ---------- */
+QStackedWidget#MainStack {
+    background-color: #0d1117;
+    border: none;
+}
+
+QLabel#PagePlaceholder {
+    color: #484f58;
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+    font-size: 12px;
+}
+
+/* ---------- Report input screen ---------- */
+
+QFrame#InputPanel {
+    background-color: #161b22;
+    border-right: 1px solid #30363d;
+}
+
+QFrame#FloorplanPanel {
+    background-color: #0d1117;
+}
+
+QLabel#FieldLabel {
+    color: #8b949e;
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+    font-size: 11px;
+    padding: 0;
+}
+
+QLabel#BuildingInfo {
+    color: #e6edf3;
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+    font-size: 12px;
+    background-color: #0d1117;
+    border: 1px solid #30363d;
+    padding: 8px 10px;
+    min-height: 40px;
+}
+
+QLabel#CoordDisplay {
+    color: #10b981;
+    font-family: "IBM Plex Mono", "Menlo", "Consolas", monospace;
+    font-size: 14px;
+    padding: 2px 0;
+}
+
+QLabel#HoverCoord {
+    color: #484f58;
+    font-family: "IBM Plex Mono", "Menlo", "Consolas", monospace;
+    font-size: 11px;
+}
+
+QLabel#SectionLabel {
+    color: #e6edf3;
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 0 4px 0;
+    border-bottom: 1px solid #30363d;
+}
+
+QLabel#EquipStatus {
+    font-family: "IBM Plex Mono", "Menlo", "Consolas", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: #8b949e;
+}
+
+QLabel#EquipStatus[state="on"]  { color: #10b981; }
+QLabel#EquipStatus[state="off"] { color: #f59e0b; }
+
+QTextEdit#LogConsole {
+    background-color: #010409;
+    color: #b6c2cf;
+    border: 1px solid #30363d;
+    font-family: "IBM Plex Mono", "Menlo", "Consolas", monospace;
+    font-size: 11px;
+    padding: 8px;
+    selection-background-color: #0a3d2c;
+}
+
+QSpinBox::up-button, QSpinBox::down-button {
+    width: 14px;
+    background-color: #21262d;
+    border: 1px solid #30363d;
+}
+
+QPushButton#FloorTab {
+    background-color: #161b22;
+    color: #8b949e;
+    border: 1px solid #30363d;
+    padding: 2px 12px;
+    font-family: "IBM Plex Mono", "Menlo", "Consolas", monospace;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+QPushButton#FloorTab:hover {
+    background-color: #1c232b;
+    color: #e6edf3;
+}
+
+QPushButton#FloorTab:checked {
+    background-color: #0a3d2c;
+    color: #10b981;
+    border: 1px solid #10b981;
+}
+
+QLabel#LegendLabel {
+    color: #8b949e;
+    font-family: "IBM Plex Mono", "Menlo", "Consolas", monospace;
+    font-size: 11px;
+}
+
+QLabel#StatValue {
+    color: #e6edf3;
+    font-family: "IBM Plex Mono", "Menlo", "Consolas", monospace;
+    font-size: 22px;
+    font-weight: 500;
+    padding: 2px 0;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 18px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #161b22;
+    color: #e6edf3;
+    border: 1px solid #30363d;
+    selection-background-color: #0a3d2c;
+    selection-color: #10b981;
+    outline: 0;
+}
+
+QDateTimeEdit::up-button, QDateTimeEdit::down-button {
+    width: 14px;
+    background-color: #21262d;
+    border: 1px solid #30363d;
+}
+
+/* ---------- Generic controls ---------- */
+QPushButton {
+    background-color: #21262d;
+    color: #e6edf3;
+    border: 1px solid #30363d;
+    padding: 6px 14px;
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+    font-size: 12px;
+}
+
+QComboBox QAbstractItemView::item {
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+    padding: 4px 8px;
+}
+
+QPushButton:hover {
+    background-color: #2a3038;
+    border: 1px solid #484f58;
+}
+
+QPushButton:pressed {
+    background-color: #161b22;
+}
+
+QPushButton:disabled {
+    background-color: #161b22;
+    color: #484f58;
+    border: 1px solid #21262d;
+}
+
+QPushButton#Primary {
+    background-color: #0a3d2c;
+    color: #10b981;
+    border: 1px solid #10b981;
+    font-weight: bold;
+}
+
+QPushButton#Primary:hover {
+    background-color: #0e5238;
+}
+
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QDateTimeEdit {
+    background-color: #0d1117;
+    color: #e6edf3;
+    border: 1px solid #30363d;
+    padding: 4px 8px;
+    font-family: "IBM Plex Mono", "Menlo", "Consolas", monospace;
+    font-size: 12px;
+}
+
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QDateTimeEdit:focus {
+    border: 1px solid #10b981;
+}
+
+QCheckBox {
+    color: #e6edf3;
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+    spacing: 8px;
+}
+
+QRadioButton#ModeRadio {
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+}
+
+QCheckBox::indicator {
+    width: 12px;
+    height: 12px;
+    border: 1px solid #30363d;
+    background-color: #0d1117;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #10b981;
+    border: 1px solid #10b981;
+}
+
+QSlider::groove:horizontal {
+    height: 4px;
+    background: #21262d;
+    border: 1px solid #30363d;
+}
+
+QSlider::handle:horizontal {
+    background: #10b981;
+    width: 10px;
+    margin: -6px 0;
+    border: 1px solid #10b981;
+}
+
+QProgressBar {
+    background-color: #0d1117;
+    border: 1px solid #30363d;
+    color: #e6edf3;
+    text-align: center;
+    font-family: "IBM Plex Mono", "Menlo", "Consolas", monospace;
+    font-size: 11px;
+}
+
+QProgressBar::chunk {
+    background-color: #10b981;
+}
+
+QScrollBar:vertical {
+    background: #0d1117;
+    width: 10px;
+    border-left: 1px solid #30363d;
+}
+
+QScrollBar::handle:vertical {
+    background: #30363d;
+    min-height: 24px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #484f58;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0;
+}
