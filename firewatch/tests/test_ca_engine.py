@@ -136,6 +136,77 @@ def test_shutter_blocks_before_ignition_same_tick():
     assert e2.states[0][1, 1] in (int(CellState.BURNING), int(CellState.BURNED))
 
 
+def test_diagonal_blocked_by_sealed_corner():
+    # Regression: flame must not "cut" a diagonal corner that is sealed on BOTH
+    # flanks. 3x3 (engine [x, y]): ignition (2,0) burns; its only two orthogonal
+    # neighbors (1,0) and (2,1) are walls; the diagonal cell (1,1) sits behind
+    # that sealed corner and must stay cold — its sole heat path is the diagonal
+    # from (2,0), which the corner rule blocks.
+    floor = Floor("1F", 3, 3, default_material=Material.WOOD)
+    floor.set_wall(1, 0)
+    floor.set_wall(2, 1)
+    b = Building("b")
+    b.add_floor(floor)
+    b.add_ignition(0, 2, 0)
+    engine = CAEngine(b, SimParameters(sprinkler_active=False, shutter_active=False), seed=0)
+    engine.rng = _ConstRng(0.0)        # ignite iff EMPTY candidate with heat >= theta
+    _run(engine, 30)
+
+    st = engine.states[0]
+    assert st[1, 1] == int(CellState.EMPTY)          # never ignited
+    assert engine.heats[0][1, 1] == 0.0              # no heat leaked through the corner
+
+
+def test_diagonal_allowed_when_one_flank_open():
+    # Same corner, but only ONE flank is a wall: heat can wrap around the open
+    # flank (an L-path), so the diagonal cell DOES catch. Guards against the
+    # corner rule over-blocking legitimate diagonal spread.
+    floor = Floor("1F", 3, 3, default_material=Material.WOOD)
+    floor.set_wall(1, 0)               # (2,1) left open
+    b = Building("b")
+    b.add_floor(floor)
+    b.add_ignition(0, 2, 0)
+    engine = CAEngine(b, SimParameters(sprinkler_active=False, shutter_active=False), seed=0)
+    engine.rng = _ConstRng(0.0)
+    _run(engine, 30)
+
+    st = engine.states[0]
+    assert st[1, 1] in (int(CellState.BURNING), int(CellState.BURNED))
+
+
+def test_shutter_trigger_below_threshold_prevents_breach():
+    # Regression: the shutter trigger must sit BELOW the lowest passable ignition
+    # threshold (WOOD theta = 4.0). If a shutter cell's heat lands in the window
+    # [theta, trigger) it ignites *before* the shutter drops and fire leaks past
+    # the line. Inject heat = 4.5 (past theta) and compare triggers.
+    def run_once(trigger: float) -> int:
+        floor = Floor("1F", 3, 3, default_material=Material.WOOD)
+        floor.set_shutter(1, 1)
+        b = Building("b")
+        b.add_floor(floor)
+        engine = CAEngine(
+            b,
+            SimParameters(sprinkler_active=False, shutter_active=True, shutter_trigger_heat=trigger),
+            seed=0,
+        )
+        engine.heats[0][1, 1] = 4.5    # past WOOD theta (4.0)
+        engine.rng = _ConstRng(0.0)    # force ignition if the cell is a candidate
+        engine.step()
+        return int(engine.states[0][1, 1])
+
+    # Trigger BELOW theta: shutter drops first -> BLOCKED, no ignition, no breach.
+    assert run_once(2.0) == int(CellState.BLOCKED)
+    # Trigger ABOVE theta (the old buggy value): the cell ignites before the
+    # shutter can drop -> NOT blocked. This is the window the fix closes.
+    assert run_once(5.0) != int(CellState.BLOCKED)
+
+
+def test_default_shutter_trigger_is_below_wood_threshold():
+    # The fix lives in the default value; pin the invariant so it can't regress
+    # back above the ignition threshold.
+    assert SimParameters().shutter_trigger_heat < float(Material.WOOD.get_threshold())
+
+
 def test_get_fire_map_marks_burning_and_burned():
     engine = CAEngine(
         _single_floor_building(ignition=(7, 7)),

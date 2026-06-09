@@ -45,6 +45,61 @@ def heat_color(p: float) -> QColor:
     )
 
 
+# Confidence (CI) view anchors — sequential greens (ColorBrewer "Greens"). The
+# confidence map replaces the risk colors entirely when the CI toggle is on:
+#   s = sharpness in [0,1], 0 = wide Wilson CI (uncertain) → pale green,
+#   1 = narrow CI (certain) → deep green. "진할수록 신뢰도 높음."
+_C_UNSURE = (199, 233, 192)   # #c7e9c0  pale green   낮은 신뢰도
+_C_MIDCI  = (65, 171, 93)     # #41ab5d  medium green
+_C_SURE   = (0, 109, 44)      # #006d2c  deep green   높은 신뢰도
+
+
+def confidence_color(s: float) -> QColor:
+    """Sequential-green confidence color at sharpness ``s`` (0..1).
+
+    Pale green = low confidence (wide CI), deep green = high confidence (narrow
+    CI). Stops at s = 0/0.5/1 joined with the same per-channel quadratic
+    (Lagrange basis) as ``heat_color`` so the sweep is continuous, no banding.
+    """
+    if s <= 0.0:
+        return QColor(*_C_UNSURE)
+    if s >= 1.0:
+        return QColor(*_C_SURE)
+    l0 = 2.0 * (s - 0.5) * (s - 1.0)
+    l1 = -4.0 * s * (s - 1.0)
+    l2 = 2.0 * s * (s - 0.5)
+    return QColor(
+        _clamp8(_C_UNSURE[0] * l0 + _C_MIDCI[0] * l1 + _C_SURE[0] * l2),
+        _clamp8(_C_UNSURE[1] * l0 + _C_MIDCI[1] * l1 + _C_SURE[1] * l2),
+        _clamp8(_C_UNSURE[2] * l0 + _C_MIDCI[2] * l1 + _C_SURE[2] * l2),
+    )
+
+
+# Stairwell marker color — light/neutral so it reads as structure, distinct from
+# the red heat, gold shutter and sky-blue sprinkler markers.
+_C_STAIRS = (226, 232, 240)   # #e2e8f0
+
+
+def draw_stairs(p: QPainter, x: int, y: int, cell: int) -> None:
+    """Draw a stairwell marker (bordered box + step lines) at pixel ``(x, y)``."""
+    inset = max(cell // 6, 1)
+    bx, by = x + inset, y + inset
+    bw = cell - 2 * inset
+    color = QColor(*_C_STAIRS)
+    if bw < 4:
+        # Too small for steps — a plain marker dot keeps it visible.
+        s = max(cell // 3, 1)
+        p.fillRect(x + (cell - s) // 2, y + (cell - s) // 2, s, s, color)
+        return
+    p.setBrush(QBrush(QColor(13, 17, 23, 170)))      # dark backing for contrast
+    p.setPen(QPen(color, max(cell // 14, 1)))
+    p.drawRect(bx, by, bw, bw)
+    p.setPen(QPen(color, max(cell // 18, 1)))
+    for k in (1, 2, 3):
+        yy = by + bw * k // 4
+        p.drawLine(bx + 1, yy, bx + bw - 1, yy)
+
+
 class HeatmapGrid(QWidget):
     cellHovered = pyqtSignal(int, int, float)   # x, y, probability ; (-1,-1,0.0) on leave
 
@@ -60,6 +115,10 @@ class HeatmapGrid(QWidget):
     # "주의 50%" heat band, and as an outline+hatch so it reads as structure, not
     # as a probability fill. Solid gray WALL_C stays the plain structural wall.
     SHUTTER  = QColor("#f5b301")
+    # Sprinkler marker: sky blue (water) — a translucent blue cell so it reads as
+    # "sprinklered here" without hiding the heat underneath, and never clashes
+    # with the red heat band or the gold shutter hatch.
+    SPRINKLER = QColor("#38bdf8")
 
     HEAT_THRESHOLD = 0.05   # below this we keep the building base color
 
@@ -71,6 +130,9 @@ class HeatmapGrid(QWidget):
         self._cell_map: np.ndarray | None = None    # (rows, cols)
         self._ignition: tuple[int, int] | None = None
         self._shutters: list[tuple[int, int]] = []   # (x, y) fire-shutter cells
+        self._sprinklers: list[tuple[int, int]] = []  # (x, y) active-sprinkler cells
+        self._stairs: list[tuple[int, int]] = []      # (x, y) inter-floor stairwell cells
+        self._confidence: np.ndarray | None = None   # (rows, cols) sharpness 0..1
         self._hover: tuple[int, int] | None = None
         self.setMinimumSize(360, 360)
         self.setMouseTracking(True)
@@ -99,6 +161,27 @@ class HeatmapGrid(QWidget):
     def set_shutters(self, cells: list[tuple[int, int]]) -> None:
         """Fire-shutter install cells for the current floor (gold hatch overlay)."""
         self._shutters = list(cells)
+        self.update()
+
+    def set_sprinklers(self, cells: list[tuple[int, int]]) -> None:
+        """Active-sprinkler cells for the current floor (translucent blue overlay)."""
+        self._sprinklers = list(cells)
+        self.update()
+
+    def set_stairs(self, cells: list[tuple[int, int]]) -> None:
+        """Inter-floor stairwell cells (shown on every floor; stair-step marker)."""
+        self._stairs = list(cells)
+        self.update()
+
+    def set_confidence(self, sharpness: np.ndarray | None) -> None:
+        """Switch the map to the confidence view (``sharpness`` array) or off (None).
+
+        When set, the reachable cells render in the green confidence gradient
+        (1.0 = narrow Wilson CI = deep green, 0.0 = wide CI = pale green) instead
+        of the risk colors — one map at a time. ``None`` restores the risk map.
+        Shape is ``(rows, cols)``, matching the probability frame.
+        """
+        self._confidence = sharpness
         self.update()
 
     # ----------------------------------------------------------- geometry
@@ -175,6 +258,7 @@ class HeatmapGrid(QWidget):
         # Heat overlay — only on room/wall cells, only when prob is meaningful.
         if self._data is not None:
             rows, cols = self._data.shape
+            conf = self._confidence
             for r in range(min(rows, self.rows)):
                 for c in range(min(cols, self.cols)):
                     if (
@@ -187,7 +271,17 @@ class HeatmapGrid(QWidget):
                     prob = float(self._data[r, c])
                     if prob <= self.HEAT_THRESHOLD:
                         continue
-                    p.fillRect(ox + c * cell, oy + r * cell, cell, cell, heat_color(prob))
+                    # Same reachable cells in both modes; the toggle only swaps the
+                    # color scale. Confidence view paints the green CI gradient
+                    # (deep = sure) in place of the risk color — one map at a time.
+                    # Bounds-checked so a transient shape desync can't raise here.
+                    if conf is not None and r < conf.shape[0] and c < conf.shape[1]:
+                        s = float(conf[r, c])
+                        s = 0.0 if s < 0.0 else 1.0 if s > 1.0 else s
+                        color = confidence_color(s)
+                    else:
+                        color = heat_color(prob)
+                    p.fillRect(ox + c * cell, oy + r * cell, cell, cell, color)
 
         if cell >= 6 and cm is not None:
             p.setPen(QPen(self.LINE, 1))
@@ -198,6 +292,18 @@ class HeatmapGrid(QWidget):
                 y = oy + r * cell
                 p.drawLine(ox, y, ox + self.cols * cell, y)
 
+        # Active sprinklers: a translucent sky-blue cell marking where suppression
+        # is applied. Drawn under the shutter hatch so a cell carrying both keeps
+        # the gold hatch legible on top; the alpha keeps any heat readable beneath.
+        if self._sprinklers:
+            fill = QColor(self.SPRINKLER)
+            fill.setAlpha(95)
+            p.setBrush(QBrush(fill))
+            p.setPen(QPen(self.SPRINKLER, 1))
+            for sx, sy in self._sprinklers:
+                if 0 <= sx < self.cols and 0 <= sy < self.rows:
+                    p.drawRect(ox + sx * cell, oy + sy * cell, cell, cell)
+
         # Fire shutters (방화벽): gold diagonal hatch + border, drawn on top of the
         # heat so a tripped shutter cell stays legible as structure even when the
         # surrounding cells are red. Distinct from orange heat and from gray walls.
@@ -207,6 +313,11 @@ class HeatmapGrid(QWidget):
             for sx, sy in self._shutters:
                 if 0 <= sx < self.cols and 0 <= sy < self.rows:
                     p.drawRect(ox + sx * cell, oy + sy * cell, cell, cell)
+
+        # Inter-floor stairwell marker (drawn on every floor at the same cell).
+        for sx, sy in self._stairs:
+            if 0 <= sx < self.cols and 0 <= sy < self.rows:
+                draw_stairs(p, ox + sx * cell, oy + sy * cell, cell)
 
         if self._hover is not None:
             hx, hy = self._hover

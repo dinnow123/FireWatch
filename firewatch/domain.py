@@ -200,7 +200,14 @@ class SimParameters:
     sprinkler_active: bool = True
     shutter_active: bool = True
     sprinkler_cooling: float = 1.0
-    shutter_trigger_heat: float = 5.0
+    # Must stay BELOW the lowest passable ignition threshold (WOOD θ = 4.0). A
+    # shutter cell sits on a ROOM (WOOD) cell, so if the trigger were ≥ θ there is
+    # a heat window [θ, trigger) where the cell can ignite *before* the shutter
+    # drops — and a fire that ignites the shutter cell leaks past the line. With
+    # trigger < θ the shutter (applied before ignition each tick) always BLOCKS
+    # the cell first, so fire can never breach it. A real shutter likewise drops
+    # early on detected heat, well before the structure itself catches.
+    shutter_trigger_heat: float = 2.0
 
     def is_sprinkler_active(self) -> bool:
         """Whether sprinklers are active in this scenario."""

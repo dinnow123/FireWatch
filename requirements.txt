@@ -1,0 +1,10 @@
+# FireWatch 런타임 의존성 — 실제 import 기준 (Python 3.12)
+#
+#   numpy       엔진/도메인 수치 배열   firewatch.domain, firewatch.engine.*, firewatch_app 전반
+#   PyQt6       데스크톱 GUI            firewatch_app.* (17개 모듈)
+#   matplotlib  엔진 검증/시각화 컬러맵  firewatch.verify_engine, firewatch.viz.colormap
+#
+# 표준 라이브러리(tkinter 등)는 여기 적지 않음 — 파이썬 기본 내장.
+numpy>=1.26
+PyQt6>=6.6
+matplotlib>=3.8

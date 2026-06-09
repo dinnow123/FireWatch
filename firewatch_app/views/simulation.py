@@ -4,7 +4,7 @@ from __future__ import annotations
 import random
 from datetime import datetime
 
-from PyQt6.QtCore import QTimer, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
-    QSpinBox,
+    QSlider,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -48,6 +48,26 @@ class SimulationView(QWidget):
         self._parameters = parameters
         self._refresh_summary()
 
+    def reset(self) -> None:
+        """Hard-clear the run state on global 초기화.
+
+        Crucially this stops the progress timer: a run started before reset would
+        otherwise keep ticking and fire ``simulationFinished`` afterwards, which
+        relaunches the real ensemble (busy dialog + heatmap) on an already-cleared
+        session. Also clears the log and progress so nothing lingers on screen.
+        """
+        self._timer.stop()
+        self._report = None
+        self._parameters = None
+        self._current_run = 0
+        self.progress.setRange(0, self._total_runs)
+        self.progress.setValue(0)
+        self.run_label.setText(f"0 / {self._total_runs}")
+        self.log.clear()
+        self.cancel_btn.setEnabled(False)
+        self.run_slider.setEnabled(True)
+        self._refresh_summary()
+
     # -------------------------------------------------------------------- ui
 
     def _build_ui(self) -> None:
@@ -81,14 +101,19 @@ class SimulationView(QWidget):
         ctrl_row.addSpacing(12)
 
         ctrl_row.addWidget(_field_label("회차"))
-        self.run_spin = QSpinBox()
-        self.run_spin.setRange(MIN_RUNS, MAX_RUNS)
-        self.run_spin.setValue(DEFAULT_RUNS)
-        self.run_spin.setSingleStep(1)
-        self.run_spin.setSuffix(" 회")
-        self.run_spin.setFixedWidth(84)
-        self.run_spin.valueChanged.connect(self._on_runs_changed)
-        ctrl_row.addWidget(self.run_spin)
+        self.run_slider = QSlider(Qt.Orientation.Horizontal)
+        self.run_slider.setRange(MIN_RUNS, MAX_RUNS)
+        self.run_slider.setValue(DEFAULT_RUNS)
+        self.run_slider.setSingleStep(1)
+        self.run_slider.setPageStep(5)
+        self.run_slider.setMinimumWidth(160)
+        self.run_slider.setMaximumWidth(240)
+        self.run_slider.valueChanged.connect(self._on_runs_changed)
+        ctrl_row.addWidget(self.run_slider)
+        self.run_value_label = QLabel(f"{DEFAULT_RUNS} 회")
+        self.run_value_label.setObjectName("CoordDisplay")
+        self.run_value_label.setMinimumWidth(48)
+        ctrl_row.addWidget(self.run_value_label)
         ctrl_row.addStretch(1)
 
         self.run_label = QLabel(f"0 / {self._total_runs}")
@@ -149,6 +174,7 @@ class SimulationView(QWidget):
 
     def _on_runs_changed(self, value: int) -> None:
         self._total_runs = value
+        self.run_value_label.setText(f"{value} 회")
         self.progress.setRange(0, value)
         self.progress.setValue(0)
         self.run_label.setText(f"0 / {value}")
@@ -168,7 +194,7 @@ class SimulationView(QWidget):
         self._append("앙상블 시뮬레이션 시작")
         self.start_btn.setEnabled(False)
         self.cancel_btn.setEnabled(True)
-        self.run_spin.setEnabled(False)
+        self.run_slider.setEnabled(False)
         self._timer.start(TICK_MS)
 
     def _cancel(self) -> None:
@@ -177,7 +203,7 @@ class SimulationView(QWidget):
         self._timer.stop()
         self.cancel_btn.setEnabled(False)
         self.start_btn.setEnabled(True)
-        self.run_spin.setEnabled(True)
+        self.run_slider.setEnabled(True)
         self._append("사용자 취소 — 진행 결과 폐기")
 
     def _tick(self) -> None:
@@ -199,7 +225,7 @@ class SimulationView(QWidget):
             self._timer.stop()
             self.cancel_btn.setEnabled(False)
             self.start_btn.setEnabled(True)
-            self.run_spin.setEnabled(True)
+            self.run_slider.setEnabled(True)
             self._append("앙상블 결과 종합 완료")
             self.simulationFinished.emit({"runs": self._total_runs})
 

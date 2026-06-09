@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from firewatch_app.sample_data.floorplan_gen import ROOM, get_layout
+
 
 @dataclass(frozen=True)
 class Equipment:
@@ -58,6 +60,47 @@ def _build_equipment(
     for x, y in exits_1f:
         eq.append(Equipment("exit", "1F", x, y))
     return tuple(eq)
+
+
+# --- equipment derived from the actual floorplan ----------------------------
+# For the BLDG005+ demo buildings the layouts are irregular (circular stadium,
+# tunnels, tanks), so hand-picking coordinates is error-prone. These helpers read
+# the generated cell map and only ever place equipment on ROOM (passable) cells.
+
+def _lattice_sprinklers(
+    layout, step: int = 6, margin: int = 4
+) -> tuple[tuple[int, int], ...]:
+    """ROOM cells on a regular lattice → sprinkler points ``(x=col, y=row)``."""
+    rows, cols = layout.shape
+    pts: list[tuple[int, int]] = []
+    for r in range(margin, rows - margin, step):
+        for c in range(margin, cols - margin, step):
+            if layout[r, c] == ROOM:
+                pts.append((c, r))
+    return tuple(pts)
+
+
+def _line_shutter(
+    layout, axis: str, fixed: int, lo: int, hi: int
+) -> tuple[tuple[int, int], ...]:
+    """ROOM cells along a row/col segment → one shutter line ``(x=col, y=row)``.
+
+    ``axis='v'``: column ``fixed``, rows ``lo..hi``; ``axis='h'``: row ``fixed``,
+    cols ``lo..hi``. Non-ROOM cells are dropped so the line lands only on passable
+    cells — where a closed shutter actually blocks spread.
+    """
+    rows, cols = layout.shape
+    if axis == "v":
+        return tuple(
+            (fixed, r)
+            for r in range(lo, hi + 1)
+            if 0 <= r < rows and 0 <= fixed < cols and layout[r, fixed] == ROOM
+        )
+    return tuple(
+        (c, fixed)
+        for c in range(lo, hi + 1)
+        if 0 <= fixed < rows and 0 <= c < cols and layout[fixed, c] == ROOM
+    )
 
 
 # --- BLDG001: 30×30 office, single horizontal corridor at row 15 ---------------
@@ -114,6 +157,30 @@ _SHUTTERS_004 = (
 )
 
 
+# --- BLDG005~009: 추가 데모 건물 — 평면도에서 설비 자동 도출 ------------------
+_L005, _L006, _L007, _L008, _L009 = (
+    get_layout("BLDG005"), get_layout("BLDG006"), get_layout("BLDG007"),
+    get_layout("BLDG008"), get_layout("BLDG009"),
+)
+
+_FLOORS_005 = ("1F", "2F", "3F")
+_FLOORS_006 = ("B1", "1F", "2F")            # B1 = 통과터널/승강장, 1F 콩코스
+_FLOORS_007 = ("1F", "2F", "3F")
+_FLOORS_008 = ("B1", "1F", "2F")
+_FLOORS_009 = ("B3", "B2", "B1", "1F")
+
+# 셔터선: 통로/홀을 가로지르는 직선을 ROOM 셀만 남겨 구획화.
+_SHUTTERS_005 = (_line_shutter(_L005, "v", 20, 9, 32), _line_shutter(_L005, "h", 20, 9, 32))
+_SHUTTERS_006 = (
+    _line_shutter(_L006, "v", 13, 3, 17),
+    _line_shutter(_L006, "v", 42, 3, 17),
+    _line_shutter(_L006, "h", 19, 5, 50),   # 통과터널 가로 차단
+)
+_SHUTTERS_007 = (_line_shutter(_L007, "v", 17, 8, 14), _line_shutter(_L007, "v", 33, 8, 14))
+_SHUTTERS_008 = (_line_shutter(_L008, "v", 16, 4, 27), _line_shutter(_L008, "h", 16, 4, 27))
+_SHUTTERS_009 = (_line_shutter(_L009, "v", 12, 3, 22), _line_shutter(_L009, "v", 25, 3, 22))
+
+
 BUILDINGS: tuple[Building, ...] = (
     Building(
         id="BLDG001",
@@ -154,6 +221,46 @@ BUILDINGS: tuple[Building, ...] = (
         equipment=_build_equipment(
             _FLOORS_004, _SPRINK_004, _SHUTTERS_004, exits_1f=((0, 12), (47, 12))
         ),
+    ),
+    Building(
+        id="BLDG005",
+        name="경산 시민 원형 스타디움",
+        address="대구 경산시 체육공원로 50",
+        floors=_FLOORS_005,
+        grid_size=(42, 42),
+        equipment=_build_equipment(_FLOORS_005, _lattice_sprinklers(_L005), _SHUTTERS_005),
+    ),
+    Building(
+        id="BLDG006",
+        name="경산역 환승센터 (지하철 통과역)",
+        address="대구 경산시 역전로 1",
+        floors=_FLOORS_006,
+        grid_size=(56, 24),
+        equipment=_build_equipment(_FLOORS_006, _lattice_sprinklers(_L006), _SHUTTERS_006),
+    ),
+    Building(
+        id="BLDG007",
+        name="경산 국제터미널 제2청사",
+        address="대구 경산시 공항대로 300",
+        floors=_FLOORS_007,
+        grid_size=(50, 22),
+        equipment=_build_equipment(_FLOORS_007, _lattice_sprinklers(_L007), _SHUTTERS_007),
+    ),
+    Building(
+        id="BLDG008",
+        name="경산 아쿠아리움",
+        address="대구 경산시 호수로 77",
+        floors=_FLOORS_008,
+        grid_size=(32, 32),
+        equipment=_build_equipment(_FLOORS_008, _lattice_sprinklers(_L008), _SHUTTERS_008),
+    ),
+    Building(
+        id="BLDG009",
+        name="중산 지하주차타워",
+        address="대구 경산시 중산로 21",
+        floors=_FLOORS_009,
+        grid_size=(38, 26),
+        equipment=_build_equipment(_FLOORS_009, _lattice_sprinklers(_L009), _SHUTTERS_009),
     ),
 )
 

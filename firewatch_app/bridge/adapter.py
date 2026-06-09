@@ -67,6 +67,23 @@ def _nearest_room(cell_map: np.ndarray, x: int, y: int, room_id: int) -> tuple[i
     return int(xs[j]), int(ys[j])
 
 
+def stairwell_cell(building_data) -> tuple[int, int] | None:
+    """The central inter-floor stairwell cell ``(col, row)`` the engine links
+    floors through — or ``None`` for a single-floor building.
+
+    Mirrors the connection placed in ``_build_validated_building`` exactly (nearest
+    ROOM cell to the building centre) so the UI can mark the *actual* simulated
+    stairwell, not a guess.
+    """
+    if len(building_data.floors) < 2:
+        return None
+    from firewatch_app.sample_data.floorplan_gen import ROOM, get_layout
+
+    cell_map = get_layout(building_data.id)
+    mid_col, mid_row = cell_map.shape[1] // 2, cell_map.shape[0] // 2
+    return _nearest_room(cell_map, mid_col, mid_row, ROOM)
+
+
 def _build_validated_building(
     building_data,
     floor_id: str,

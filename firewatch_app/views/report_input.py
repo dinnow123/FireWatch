@@ -11,11 +11,13 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
+from firewatch_app.bridge.adapter import stairwell_cell
 from firewatch_app.sample_data.buildings import BUILDINGS, Building, find_building
 from firewatch_app.sample_data.floorplan_gen import get_layout
 from firewatch_app.widgets.floorplan import FloorplanGrid
@@ -179,6 +181,8 @@ class ReportInputView(QWidget):
             self.floor_combo.setCurrentText("1F")
         self.floor_combo.setEnabled(True)
         self.grid.set_layout(get_layout(building.id))
+        stairs = stairwell_cell(building)
+        self.grid.set_stairs([stairs] if stairs else [])
         self.coord_display.setText("─")
         self._refresh_submit()
 
@@ -201,9 +205,10 @@ class ReportInputView(QWidget):
             self.hover_display.setText(f"({x:>2}, {y:>2})")
 
     def _refresh_submit(self) -> None:
-        self.submit_btn.setEnabled(
-            self._building is not None and self.grid.ignition is not None
-        )
+        # Enabled once a building is loaded (the map exists). The ignition point
+        # is validated on click in _on_submit so a press with no point selected
+        # can prompt "맵에서 화재지점을 선택하십시오" instead of silently doing nothing.
+        self.submit_btn.setEnabled(self._building is not None)
 
     # ----------------------------------------------------------------- reset
 
@@ -229,7 +234,12 @@ class ReportInputView(QWidget):
         self._refresh_submit()
 
     def _on_submit(self) -> None:
-        if self._building is None or self.grid.ignition is None:
+        if self._building is None:
+            return
+        if self.grid.ignition is None:
+            QMessageBox.information(
+                self, "발화지점 필요", "맵에서 화재지점을 선택하십시오."
+            )
             return
         report = {
             "building": self._building,

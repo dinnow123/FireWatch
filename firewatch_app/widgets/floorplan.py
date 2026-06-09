@@ -7,6 +7,7 @@ from PyQt6.QtGui import QBrush, QColor, QMouseEvent, QPainter, QPen
 from PyQt6.QtWidgets import QWidget
 
 from firewatch_app.sample_data.floorplan_gen import OUTSIDE, ROOM, WALL, WALL_WEAK
+from firewatch_app.widgets.heatmap_grid import draw_stairs
 
 
 class FloorplanGrid(QWidget):
@@ -29,6 +30,7 @@ class FloorplanGrid(QWidget):
         self.rows = rows
         self._cell_map: np.ndarray | None = None
         self.ignition: tuple[int, int] | None = None
+        self._stairs: list[tuple[int, int]] = []
         self._hover: tuple[int, int] | None = None
         self.setMinimumSize(360, 360)
         self.setMouseTracking(True)
@@ -41,10 +43,17 @@ class FloorplanGrid(QWidget):
         self.cols = cols
         self._cell_map = cell_map
         self.ignition = None
+        self._stairs = []
+        self.update()
+
+    def set_stairs(self, cells: list[tuple[int, int]]) -> None:
+        """Inter-floor stairwell cells to mark (same on every floor)."""
+        self._stairs = list(cells)
         self.update()
 
     def clear(self) -> None:
         self.ignition = None
+        self._stairs = []
         self.update()
 
     def cell_type_at(self, x: int, y: int) -> int:
@@ -140,6 +149,10 @@ class FloorplanGrid(QWidget):
             for r in range(self.rows + 1):
                 y = oy + r * cell
                 p.drawLine(ox, y, ox + grid_w, y)
+
+        for sx, sy in self._stairs:
+            if 0 <= sx < self.cols and 0 <= sy < self.rows:
+                draw_stairs(p, ox + sx * cell, oy + sy * cell, cell)
 
         if self.ignition is not None:
             ix, iy = self.ignition

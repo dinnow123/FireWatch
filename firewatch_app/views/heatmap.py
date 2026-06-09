@@ -16,6 +16,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from firewatch.engine.result import wilson_interval
+from firewatch_app.bridge.adapter import stairwell_cell
 from firewatch_app.sample_data.floorplan_gen import get_layout
 from firewatch_app.widgets.colorbar import HeatmapColorbar
 from firewatch_app.widgets.heatmap_grid import HeatmapGrid
@@ -25,6 +27,35 @@ from firewatch_app.widgets.heatmap_grid import HeatmapGrid
 # keeps the displayed timeline honest while the longer horizon reaches ~49 min.
 SECONDS_PER_STEP = 50
 
+# Confidence view: a cell whose 95% Wilson CI spans at least this much
+# probability is treated as fully uncertain (most faded). Fixed in absolute
+# probability units so the shading means the same thing across run counts — more
+# runs shrink every CI, so the whole map reads sharper. (~0.30 = a 30-point
+# spread, a genuinely wide interval.)
+CI_WIDTH_REF = 0.30
+
+
+def _confidence_frame(prob_frame: np.ndarray, n_runs: int) -> np.ndarray | None:
+    """Per-cell confidence sharpness in [0,1] derived from the Wilson CI width.
+
+    The cube frame value ``p`` is the fraction of ensemble runs that had ignited
+    a cell, so ``count = round(p · n)`` recovers each cell's binomial success
+    count; the *validated* engine ``wilson_interval`` then gives ``(lower, upper)``
+    and the CI width is ``upper - lower``. Sharpness = ``1 - clamp(width / REF)``,
+    so a narrow CI → 1.0 (vivid) and a wide CI → 0.0 (faint). Only ``n+1`` distinct
+    counts are possible, so we build a width lookup with ``n+1`` engine calls and
+    map the whole frame through it — vectorized, no per-cell Python loop.
+    """
+    if n_runs <= 0:
+        return None
+    counts = np.clip(np.rint(prob_frame * n_runs).astype(int), 0, n_runs)
+    width_lut = np.empty(n_runs + 1, dtype=np.float32)
+    for c in range(n_runs + 1):
+        low, high = wilson_interval(c, n_runs)
+        width_lut[c] = high - low
+    width = width_lut[counts]
+    return (1.0 - np.clip(width / CI_WIDTH_REF, 0.0, 1.0)).astype(np.float32)
+
 
 class HeatmapView(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -32,6 +63,9 @@ class HeatmapView(QWidget):
         self._report: dict | None = None
         self._ensemble: np.ndarray | None = None
         self._shutter_active = True
+        self._stairs: tuple[int, int] | None = None   # inter-floor stairwell cell
+        self._ci_view = False          # confidence-interval shading toggle
+        self._n_runs = 30              # ensemble N, needed for the Wilson width
         self._floor_idx = 0
         self._t_idx = 0
         self._t_zero: datetime | None = None
@@ -45,9 +79,14 @@ class HeatmapView(QWidget):
         report: dict | None,
         ensemble: np.ndarray | None,
         parameters: dict | None = None,
+        n_runs: int = 30,
     ) -> None:
         self._report = report
         self._ensemble = ensemble
+        self._stairs = stairwell_cell(report["building"]) if report else None
+        # Ensemble N drives the Wilson CI width; the toggle state itself is kept
+        # on the view so floor/time changes (and a fresh run) preserve it.
+        self._n_runs = int(n_runs) if n_runs else 30
         # Firewalls only form when shutters were active for this run, so the gold
         # hatch is shown only then (default-on when params are unspecified).
         self._shutter_active = True if parameters is None else bool(parameters.get("shutter", True))
@@ -102,6 +141,15 @@ class HeatmapView(QWidget):
         self.empty_label = QLabel("시뮬레이션 결과 없음 — 시뮬레이션을 먼저 실행하세요.")
         self.empty_label.setObjectName("FieldLabel")
         tabs_wrap.addWidget(self.empty_label)
+        # Confidence-interval shading toggle (UC6). Color keeps encoding
+        # probability; opacity encodes how tight each cell's Wilson CI is.
+        self.ci_toggle = QPushButton("신뢰구간 보기")
+        self.ci_toggle.setObjectName("FloorTab")
+        self.ci_toggle.setCheckable(True)
+        self.ci_toggle.setChecked(self._ci_view)
+        self.ci_toggle.setFixedHeight(26)
+        self.ci_toggle.toggled.connect(self._on_ci_toggled)
+        tabs_wrap.addWidget(self.ci_toggle)
         v.addLayout(tabs_wrap)
 
         # --- grid + hover info ---
@@ -131,12 +179,15 @@ class HeatmapView(QWidget):
         # --- colorbar ---
         legend = QHBoxLayout()
         legend.setSpacing(8)
-        legend.addWidget(_legend_label("안전 0%"))
+        self._legend_low = _legend_label("안전 0%")
+        legend.addWidget(self._legend_low)
         self.colorbar = HeatmapColorbar()
         legend.addWidget(self.colorbar, 1)
-        legend.addWidget(_legend_label("주의 50%"))
+        self._legend_mid = _legend_label("주의 50%")
+        legend.addWidget(self._legend_mid)
         legend.addSpacing(8)
-        legend.addWidget(_legend_label("위험 100%"))
+        self._legend_high = _legend_label("위험 100%")
+        legend.addWidget(self._legend_high)
         v.addLayout(legend)
 
         outer.addWidget(host, 1)
@@ -171,6 +222,24 @@ class HeatmapView(QWidget):
         self._floor_idx = floor_idx
         self._refresh()
 
+    def _on_ci_toggled(self, checked: bool) -> None:
+        self._ci_view = checked
+        self._apply_legend_mode()
+        self._refresh()
+
+    def _apply_legend_mode(self) -> None:
+        """Swap the colorbar gradient + legend labels to match the active map."""
+        if self._ci_view:
+            self.colorbar.set_mode("confidence")
+            self._legend_low.setText("불확실")
+            self._legend_mid.setText("보통")
+            self._legend_high.setText("확실")
+        else:
+            self.colorbar.set_mode("risk")
+            self._legend_low.setText("안전 0%")
+            self._legend_mid.setText("주의 50%")
+            self._legend_high.setText("위험 100%")
+
     # ------------------------------------------------------ time slider
 
     def _refresh_slider_range(self) -> None:
@@ -194,6 +263,7 @@ class HeatmapView(QWidget):
         has_data = self._ensemble is not None and self._report is not None
         self.empty_label.setVisible(not has_data)
         self.time_slider.setEnabled(has_data)
+        self.ci_toggle.setEnabled(has_data)
 
         if not has_data:
             # Keep the grid's dims in sync with whatever layout is loaded so the
@@ -205,6 +275,8 @@ class HeatmapView(QWidget):
             else:
                 cols, rows = 30, 30
             self.grid.set_shutters([])
+            self.grid.set_stairs([])
+            self.grid.set_confidence(None)
             self.grid.set_frame(None, cols, rows, None)
             self.time_label.setText("─")
             return
@@ -225,6 +297,10 @@ class HeatmapView(QWidget):
             else []
         )
         self.grid.set_shutters(shutters)
+        self.grid.set_stairs([self._stairs] if self._stairs else [])
+        self.grid.set_confidence(
+            _confidence_frame(frame, self._n_runs) if self._ci_view else None
+        )
         self.grid.set_frame(frame, cols, rows, ignition_xy)
 
         # Update time label

@@ -145,9 +145,20 @@ class CAEngine:
             contrib = np.zeros_like(burning_f)
             for dx, dy in _ORTHOGONAL:
                 contrib += _shift_mask(burning_f, dx, dy)
+            # Diagonal transfer, but flame cannot squeeze through a corner that is
+            # sealed on both flanks: a diagonal step into target (x, y) from a
+            # burning source (x+dx, y+dy) is blocked when BOTH orthogonal cells
+            # flanking it — (x+dx, y) and (x, y+dy) — are BLOCKED (wall / dropped
+            # shutter / outside). If at least one flank is open, heat can wrap
+            # around it, so the diagonal still applies.
+            blocked_f = (self.states[floor_idx] == int(CellState.BLOCKED)).astype(np.float64)
             diag = np.zeros_like(burning_f)
             for dx, dy in _DIAGONAL:
-                diag += _shift_mask(burning_f, dx, dy)
+                src = _shift_mask(burning_f, dx, dy)
+                corner_a = _shift_mask(blocked_f, dx, 0)   # cell (x+dx, y)
+                corner_b = _shift_mask(blocked_f, 0, dy)   # cell (x, y+dy)
+                src[(corner_a > 0.0) & (corner_b > 0.0)] = 0.0
+                diag += src
             contrib += diag * self.DIAGONAL_FACTOR
             self.heats[floor_idx] += self.BASE_TRANSFER * contrib * self._multiplier[floor_idx]
 

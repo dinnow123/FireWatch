@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from PyQt6.QtCore import Qt, QThread
+from PyQt6.QtCore import Qt, QThread, QTimer
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -187,6 +187,7 @@ class MainWindow(QMainWindow):
         self._report: dict | None = None
         self._parameters: dict | None = None
         self._ensemble = None
+        self._n_runs = 30          # ensemble N of the last run (for the CI view)
         self._run_thread: QThread | None = None
         self._run_worker: EnsembleWorker | None = None
         self._busy_dialog: QProgressDialog | None = None
@@ -241,15 +242,23 @@ class MainWindow(QMainWindow):
         elif key == "simulation":
             self.simulation_view.set_context(self._report, self._parameters)
         elif key == "heatmap":
-            self.heatmap_view.set_context(self._report, self._ensemble, self._parameters)
+            self.heatmap_view.set_context(
+                self._report, self._ensemble, self._parameters, self._n_runs
+            )
         elif key == "section":
             self.section_view.set_context(self._report, self._ensemble)
         elif key == "summary":
-            self.summary_view.set_context(self._report, self._ensemble)
+            self.summary_view.set_context(self._report, self._ensemble, self._n_runs)
         elif key == "comparison":
             self.comparison_view.set_context(self._report, self._parameters, self._ensemble)
         elif key == "reset":
-            self._handle_reset_request()
+            # Defer out of this currentRowChanged slot: _handle_reset_request opens
+            # a modal dialog and then re-selects the report row. Doing that while
+            # still inside the list's own selection-change handler leaves the right
+            # panel stuck on the old page in a real window manager (the sidebar
+            # highlight moves but the stack doesn't). singleShot(0) lets the slot
+            # unwind first so the navigation lands cleanly.
+            QTimer.singleShot(0, self._handle_reset_request)
             return
         self.stack.setCurrentIndex(idx)
 
@@ -267,15 +276,16 @@ class MainWindow(QMainWindow):
         self._goto("simulation")
 
     def _on_simulation_finished(self, result: dict) -> None:
-        # No report -> nothing to compute; just show whatever is cached.
+        # No report means the session was cleared (초기화) after this run started:
+        # a leaked timer tick must not relaunch the ensemble or leave the first
+        # screen. Do nothing.
         if self._report is None:
-            self._push_ensemble_to_views()
-            self._goto("heatmap")
             return
         if self._run_thread is not None:  # a run is already in flight
             return
 
         n_runs = int(result.get("runs", 30))
+        self._n_runs = n_runs
         self._run_thread = QThread(self)
         self._run_worker = EnsembleWorker(
             self._report["building"],
@@ -294,6 +304,10 @@ class MainWindow(QMainWindow):
     def _on_ensemble_ready(self, cube) -> None:
         self._hide_busy()
         self._teardown_run_thread()
+        # A run that was in flight when the user pressed 초기화 must not repopulate
+        # the views or navigate away from the cleared first screen.
+        if self._report is None:
+            return
         self._ensemble = cube
         self._push_ensemble_to_views()
         self._goto("heatmap")
@@ -301,6 +315,8 @@ class MainWindow(QMainWindow):
     def _on_ensemble_failed(self, message: str) -> None:
         self._hide_busy()
         self._teardown_run_thread()
+        if self._report is None:        # session was cleared mid-run; stay quiet
+            return
         QMessageBox.critical(self, "시뮬레이션 오류", f"앙상블 계산 실패:\n{message}")
 
     # --- busy indicator -----------------------------------------------------
@@ -338,9 +354,11 @@ class MainWindow(QMainWindow):
         self._run_worker = None
 
     def _push_ensemble_to_views(self) -> None:
-        self.heatmap_view.set_context(self._report, self._ensemble, self._parameters)
+        self.heatmap_view.set_context(
+            self._report, self._ensemble, self._parameters, self._n_runs
+        )
         self.section_view.set_context(self._report, self._ensemble)
-        self.summary_view.set_context(self._report, self._ensemble)
+        self.summary_view.set_context(self._report, self._ensemble, self._n_runs)
         self.comparison_view.set_context(self._report, self._parameters, self._ensemble)
 
     def _goto(self, key: str) -> None:
@@ -353,6 +371,14 @@ class MainWindow(QMainWindow):
                 break
         self.stack.setCurrentIndex(idx)
 
+    def _current_page_key(self) -> str:
+        """Key of the screen currently shown in the stack (fallback: report)."""
+        cur = self.stack.currentIndex()
+        for key, page_idx in self._page_index.items():
+            if page_idx == cur:
+                return key
+        return "report"
+
     def _handle_reset_request(self) -> None:
         from PyQt6.QtWidgets import QMessageBox
         msg = QMessageBox(self)
@@ -361,11 +387,22 @@ class MainWindow(QMainWindow):
         msg.setInformativeText("메모리상의 신고 정보·파라미터·앙상블 결과가 모두 제거됩니다.")
         msg.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
         if msg.exec() != QMessageBox.StandardButton.Ok:
-            self._goto("report")
+            # User backed out: keep the session, just move the sidebar highlight
+            # off the "초기화" row back to whatever page is actually showing.
+            self._goto(self._current_page_key())
             return
         self._report = None
         self._parameters = None
         self._ensemble = None
+        self._n_runs = 30
+        # Abort anything in flight FIRST: close the busy dialog and drop the
+        # worker thread so a late ensemble result can't repopulate the views, and
+        # stop the simulation view's progress timer so it can't relaunch a run
+        # after the session was cleared. Without this, reset briefly shows the
+        # report screen and then gets yanked back to the heatmap.
+        self._hide_busy()
+        self._teardown_run_thread()
+        self.simulation_view.reset()
         # Clear the two input forms too — otherwise the previous building pick,
         # ignition coord, and equipment toggles linger after "초기화".
         self.report_view.reset()
@@ -374,5 +411,4 @@ class MainWindow(QMainWindow):
         self.section_view.set_context(None, None)
         self.summary_view.set_context(None, None)
         self.comparison_view.set_context(None, None, None)
-        self.simulation_view.set_context(None, None)
         self._goto("report")

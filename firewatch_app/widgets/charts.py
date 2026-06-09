@@ -153,3 +153,65 @@ class FloorBars(QWidget):
                 Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
                 f"{v * 100:5.1f}%",
             )
+
+
+class RiskBar(QWidget):
+    """Single stacked bar of the high/mid/low risk-cell counts + a legend.
+
+    Segment widths are proportional to the counts; colors are fixed to the risk
+    level (red 고위험 / orange 중위험 / gray 저위험), not to the count, so the bar
+    reads as a distribution at a glance.
+    """
+    BG     = QColor("#0d1117")
+    TRACK  = QColor("#161b22")
+    LABEL  = QColor("#e6edf3")
+    HIGH_C = QColor("#dc2626")   # 고위험 >70%
+    MID_C  = QColor("#f97316")   # 중위험 30~70%
+    LOW_C  = QColor("#6b7280")   # 저위험 <30%
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._high = self._mid = self._low = 0
+        self.setMinimumHeight(64)
+
+    def set_counts(self, high: int, mid: int, low: int) -> None:
+        self._high, self._mid, self._low = int(high), int(mid), int(low)
+        self.update()
+
+    def paintEvent(self, _event) -> None:
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+        p.fillRect(self.rect(), self.BG)
+
+        total = self._high + self._mid + self._low
+        ml, mr, mt = 8, 8, 6
+        bar_w = self.width() - ml - mr
+        bar_h = 18
+        p.setPen(Qt.PenStyle.NoPen)
+        p.fillRect(ml, mt, bar_w, bar_h, self.TRACK)
+        if total > 0:
+            x = ml
+            for count, color in (
+                (self._high, self.HIGH_C), (self._mid, self.MID_C), (self._low, self.LOW_C)
+            ):
+                seg = int(round(bar_w * count / total))
+                if seg > 0:
+                    p.fillRect(x, mt, seg, bar_h, color)
+                    x += seg
+
+        # Legend: colored swatch + "label N" for each band.
+        p.setFont(QFont("IBM Plex Mono", 10))
+        ly = mt + bar_h + 12
+        x = ml
+        for label, count, color in (
+            ("고위험", self._high, self.HIGH_C),
+            ("중위험", self._mid, self.MID_C),
+            ("저위험", self._low, self.LOW_C),
+        ):
+            p.setPen(Qt.PenStyle.NoPen)
+            p.fillRect(x, ly, 10, 10, color)
+            p.setPen(QPen(self.LABEL, 1))
+            text = f" {label} {count:,}"
+            p.drawText(x + 12, ly - 1, 150, 14,
+                       Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, text)
+            x += 12 + 8 * len(text) + 8

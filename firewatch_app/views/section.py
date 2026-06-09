@@ -18,7 +18,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from firewatch_app.widgets.section_diagram import SectionDiagram
+from firewatch_app.sample_data.floorplan_gen import get_layout
+from firewatch_app.widgets.section_diagram import SectionDiagram, project_section
 
 
 class SectionView(QWidget):
@@ -49,7 +50,7 @@ class SectionView(QWidget):
         v.setSpacing(10)
 
         head = QHBoxLayout()
-        head.addWidget(_field_label("건물 단면도 — 도달 확률 상위 10% 평균"))
+        head.addWidget(_field_label("건물 단면도 — 도달 확률 (열별 최대)"))
         head.addStretch(1)
         self.empty_label = QLabel("시뮬레이션 결과 없음 — 시뮬레이션을 먼저 실행하세요.")
         self.empty_label.setObjectName("FieldLabel")
@@ -101,20 +102,19 @@ class SectionView(QWidget):
         self.time_slider.setEnabled(has_data)
 
         if not has_data:
-            self.diagram.set_data([])
+            self.diagram.set_section([], None)
             self.time_label.setText("─")
             return
 
-        floors = self._report["building"].floors
+        floors = list(self._report["building"].floors)
         frame = self._ensemble[:, self._t_idx]   # (n_floors, rows, cols)
-        risks: list[tuple[str, float]] = []
-        for f, name in enumerate(floors):
-            flat = frame[f].ravel()
-            n = max(1, int(flat.size * 0.10))
-            top = np.partition(flat, -n)[-n:]
-            risks.append((name, float(top.mean())))
-        risks.reverse()                          # top floor first
-        self.diagram.set_data(risks)
+        # Max-intensity projection over the depth (rows), cropped to the building's
+        # columns: each (floor, col) keeps the hottest cell in that vertical slice,
+        # so the elevation shows *where* along the building width fire reaches —
+        # without the surrounding-land OUTSIDE gutters. Top floor drawn first.
+        cell_map = get_layout(self._report["building"].id)
+        section = project_section(frame, cell_map)   # (n_floors, n_building_cols)
+        self.diagram.set_section(list(reversed(floors)), section[::-1])
 
         n_t = self._ensemble.shape[1]
         self.time_label.setText(f"t = {self._t_idx:02d} / {n_t - 1:02d}")
